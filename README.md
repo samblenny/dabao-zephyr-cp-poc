@@ -26,7 +26,19 @@ my Zephyr board definition for Dabao.
    of luck.
 
 
-## Docs and Refs
+## Goals & Strategy
+
+What I care about here is getting to the point of CircuitPython running on a
+Dabao board by the most straightforward path which seems reasonable and in good
+taste.
+
+For a new SoC with peripherals that need new drivers, using Zephyr's extensive
+configuration mechanisms won't give me much benefit. I plan to bypass Device
+Tree as much as I can. When possible, I plan to hardcode constants rather than
+using magical Zephyr macros. I know this is not the Zephyr Way. I don't care.
+
+
+## Docs & Refs
 
 
 ### Baochip-1x
@@ -80,6 +92,9 @@ not-rust channel.
 ### Zephyr
 
 These are for implementing Zephyr drivers, board definitions, etc.
+
+- [How to Build Drivers for Zephyr RTOS](https://www.zephyrproject.org/how-to-build-drivers-for-zephyr-rtos/)
+  (Zephyr Project blog, August 11, 2020)
 
 - [LiteX VexRiscv](https://docs.zephyrproject.org/latest/boards/enjoydigital/litex_vexriscv/doc/index.html)
   board definition
