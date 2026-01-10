@@ -30,12 +30,14 @@ my Zephyr board definition for Dabao.
 
 What I care about here is getting to the point of CircuitPython running on a
 Dabao board by the most straightforward path which seems reasonable and in good
-taste.
+taste. Plan is CPU, ReRAM, RAM, LED blinky, and UART serial first, then maybe
+add USB.
 
-For a new SoC with peripherals that need new drivers, using Zephyr's extensive
-configuration mechanisms won't give me much benefit. I plan to bypass Device
-Tree as much as I can. When possible, I plan to hardcode constants rather than
-using magical Zephyr macros. I know this is not the Zephyr Way. I don't care.
+Zephyr's configuration system is more complex than I expect to be useful, so I
+plan to bypass some of it if I can. Specifically, if possible, I hope to use
+the Rust drivers with a C FFI wrapper. To the extent that using Zephyr's
+typical Device Tree Macros gets in the way of using the Rust drivers, I hope to
+bypass the Device Tree stuff.
 
 
 ## Docs & Refs
@@ -93,6 +95,18 @@ not-rust channel.
 
   Current no_std BIO drivers:
   [xous-core/libs/bao1x-hal/src/bio_hw.rs](https://github.com/betrusted-io/xous-core/blob/main/libs/bao1x-hal/src/bio_hw.rs)
+
+
+### CircuitPython
+
+- [circuitpython/ports/zephyr-cp/README.md](https://github.com/adafruit/circuitpython/blob/main/ports/zephyr-cp/README.md)
+  explains how to install and build the CircuitPython Zephyr port
+
+- CircuitPython Zephyr port build tools:
+  [ports/zephyr-cp/cptools](https://github.com/adafruit/circuitpython/tree/main/ports/zephyr-cp/cptools)
+
+  See [zephyr2cp.py](https://github.com/adafruit/circuitpython/blob/main/ports/zephyr-cp/cptools/zephyr2cp.py)
+for details of how CircuitPython extracts pin mappings from Device Tree config)
 
 
 ### Zephyr
