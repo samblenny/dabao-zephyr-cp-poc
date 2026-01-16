@@ -294,3 +294,122 @@ These are for implementing Zephyr drivers, board definitions, etc.
 
 - Zephyr Project
   [GPIO API docs](https://docs.zephyrproject.org/latest/hardware/peripherals/gpio.html)
+
+
+## Notes from Xous Docs
+
+These have some useful info for dev environment setup along with building,
+signing, and flashing apps for Baochip:
+
+1. https://betrusted.io/xous-book/ch01-02-hello-world.html
+2. https://github.com/betrusted-io/xous-core/blob/main/README-baochip.md
+
+
+## Dev Environment Setup
+
+These instructions are for Debian 13 (Trixie), but they should probably work
+with minimal modifications on whatever the latest Ubuntu LTS release is.
+You're on your own for adapting to other Linux flavors, Windows, or macOS.
+
+1. Install Rust using the rustup install procedure at:
+   [rust-lang.org/learn/get-started/](https://rust-lang.org/learn/get-started/)
+
+   If you're allergic to piping curl into a shell, download the script on your
+   own first and give it a read before you run it. You might also consider
+   selecting the script's "Customize installation" option and telling it not to
+   automatically modify your PATH, then modify PATH manually yourself.
+
+2. Install the riscv32imac-unknown-none-elf target with rustup:
+
+   ```
+   rustup target add riscv32imac-unknown-none-elf
+   ```
+
+**TODO: Finish this**
+
+
+## Binary Signing and UF2 Notes
+
+The bao1x bootloader expects binary images to be ed25519ph signed with  using
+the developer key that's available at
+[betrusted-io/xous-core/devkey/dev.key](https://github.com/betrusted-io/xous-core/blob/main/devkey/dev.key).
+
+The xous-core repo includes tools to go from ELF binary, to signed ELF binary,
+to bootloader-ready UF2 file. I'll need to implement an equivalent of that
+workflow for C binaries that link to Rust drivers through an FFI wrapper.
+Ideally, I'd like tooling that works without a dependency on cloning the
+xous-core repo or invoking `cargo`. Definitely I want to avoid using `xtask`.
+
+These scripts and tools from xous-core are involved in signing and UF2
+creation:
+
+- Windows PowerShell script to sign and deploy official build artifacts for
+  Dabao using a hardware signing token:<br>
+  [xous-core/baosign.ps1](https://github.com/betrusted-io/xous-core/blob/main/baosign.ps1)
+
+- This tool converts .img pre-sign binaries (derived from ELF binaries) into
+  UF2 encoded signed binaries. There's some moderately complicated stuff going
+  on with wrapping the object code in a file structure that includes public
+  keys, padding, version info, the signature, and maybe a couple other
+  things.<br>
+  [xous-core/tools/src/sign_image.rs](https://github.com/betrusted-io/xous-core/blob/main/tools/src/sign_image.rs) (library functions)<br>
+[xous-core/tools/src/bin/sign_image.rs](https://github.com/betrusted-io/xous-core/blob/main/tools/src/bin/sign_image.rs) (command)
+
+  The public keys that get embedded in the signed output image come from:<br>
+  [xous-core/libs/bao1x-api/src/*.rs](https://github.com/betrusted-io/xous-core/tree/main/libs/bao1x-api/src/pubkeys)
+
+  The developer key private key PEM comes from:<br>
+  [xous-core/devkey/dev.key](https://github.com/betrusted-io/xous-core/blob/main/devkey/dev.key)
+
+  The developer key public key certificate PEM comes from:<br>
+  [xous-core/devkey/dev-x509.crt](https://github.com/betrusted-io/xous-core/blob/main/devkey/dev-x509.crt)
+
+
+- This section of the Xous `xtask` tool shows the command line arguments that
+  it uses when invoking `sign_image.rs` to sign a baremetal binary:<br>
+  [xous-core/xtask/src/builder.rs#L978-L1000](https://github.com/betrusted-io/xous-core/blob/32c5d492cdd745f2f36163564025a9a93c90422a/xtask/src/builder.rs#L978-L1000)
+
+  That ends up doing the equivalent of:
+
+   ```
+    target/debug/sign-image --loader-image \
+    target/riscv32imac-unknown-none-elf/release/baremetal-presign.img \
+    --loader-key devkey/dev.key --loader-output \
+    target/riscv32imac-unknown-none-elf/release/baremetal.img \
+    --min-xous-ver v0.9.8-791 --sig-length 768 --with-jump --bao1x \
+    --function-code baremetal
+   ```
+
+- This will convert an ELF file to a pre-sign object (.img file):
+
+   ```
+    target/debug/copy-object \
+    xous-core/target/riscv32imac-unknown-none-elf/release/baremetal \
+    target/riscv32imac-unknown-none-elf/release/baremetal-presign.img --bao1x
+   ```
+
+  You can get a help message for `copy-object` from xous-core by doing:
+
+  ```
+  cargo run --package tools --bin copy-object
+  ```
+
+
+## Build & Run sign_image.rs
+
+1. Install rust with rustup
+
+2. Clone xous-core:
+   ```
+   git clone --depth 100 https://github.com/betrusted-io/xous-core.git
+   ```
+
+3. Build sign-image:
+   ```
+   cargo run -p tools --bin sign-image
+   ```
+
+4. Run it:
+   ```
+   target/debug/sign-image --help
+   ```
