@@ -413,3 +413,148 @@ creation:
    ```
    target/debug/sign-image --help
    ```
+
+
+## Alternate Signing Method
+
+My [signer.py](signer.py) script implements a functionally equivalent signing
+operation to `sign-image` invoked with the baremetal bao1x options listed
+above. The point of my signer script is to make it possible to sign without
+pulling in xous-core as a dependency.
+
+The signer still requires that you convert the ELF file to a binary blob of
+object code in the style of `copy-object`. But, it would probably also work to
+use gcc's `objcopy` tool. (I haven't tried that yet.)
+
+
+## Understanding the Blob Format and Early Boot
+
+The pre-sign image created by `copy-object` is meant to be copied to RRAM (the
+Baochip equivalent of flash) for XIP (execute in place) access by the CPU. The
+blob contains:
+
+1. A header, beginning with a jump instruction, that's sufficient to
+   reconstruct statics from the `.data` section. This is a method to compress
+   `.data`, which typically has many zero bytes. This matters particularly for
+   the bootloaders, which are space constrained to fit in small RRAM slots.
+
+2. The `.text` section with executable code (assembly and compiled rust code).
+   This begins with init code to set up hardware, prepare the `.data` section
+   in RAM, zero the `.bss` section in RAM, configure interrupt and trap
+   handlers, set the stack pointer, and jump to `_start`.
+
+3. The `.rodata` section with read-only data that stays in RRAM (flash).
+
+For my purposes, compressing `.data` is probably not necessary. But, my code in
+`.text` will still be responsible for initializing `.data` and `.bss` by some
+means.
+
+If using `objcopy` to create a blob instead of `copy-object`, it will be
+important to ensure section start offsets within the blob file stay consistent
+with the LMA addresses in the ELF binary. This may involve padding. Making sure
+the blob gets written to the correct RRAM start address happens by setting the
+offset in the UF2 file (see `signer.py` or `sign_image.rs`).
+
+For link script info and `.data` initialization details, see:
+
+- [xous-core/baremetal/src/platform/bao1x/link.x](https://github.com/betrusted-io/xous-core/blob/main/baremetal/src/platform/bao1x/link.x)
+- [xous-core/baremetal/src/platform/bao1x/bao1x.rs](https://github.com/betrusted-io/xous-core/blob/d26ce7fbf11fef8aac24adea93f557341dd0600f/baremetal/src/platform/bao1x/bao1x.rs#L52-L72)
+- [xous-core/tools/src/bin/copy-object.rs](https://github.com/betrusted-io/xous-core/blob/d26ce7fbf11fef8aac24adea93f557341dd0600f/tools/src/bin/copy-object.rs#L55-L84)
+
+For early hardware setup, including IRQs, see:
+
+- [xous-core/baremetal/src/platform/bao1x/irq.rs](https://github.com/betrusted-io/xous-core/blob/d26ce7fbf11fef8aac24adea93f557341dd0600f/baremetal/src/platform/bao1x/irq.rs#L10-L28)
+
+Bunnie says, when the Bao1x bootloader jumps to the initial JAL instruction at
+the start of the signed blob in RRAM, interrupts are guaranteed to be off.
+Also, at that point, the UDMA UART baud rate, buffers, and clocks will be set
+up and ready to use (but it's best to re-initialize them anyway).
+
+Some relevant UDMA UART code snippets from xous-core:
+
+- TX usage:
+
+  ```
+  let mut udma_uart = unsafe {
+      // safety: this is safe to call, because we set up clock and events prior
+      // to calling new.
+      udma::Uart::get_handle(
+          utra::udma_uart_2::HW_UDMA_UART_2_BASE,
+          uart_buf_addr,
+          uart_buf_addr,
+      )
+  };
+  udma_uart.write(&buf);
+  ```
+
+- `get_handle` definition:
+
+  ```
+  pub unsafe fn get_handle(csr_virt_addr: usize, udma_phys_addr: usize,
+  udma_virt_addr: usize) -> Self {
+      assert!(UART_RX_BUF_SIZE + UART_TX_BUF_SIZE == 4096,
+          "Configuration error in UDMA UART");
+      let csr = CSR::new(csr_virt_addr as *mut u32);
+      Uart {
+          csr,
+          ifram: IframRange::from_raw_parts(
+              udma_phys_addr,
+              udma_virt_addr,
+              UART_RX_BUF_SIZE + UART_TX_BUF_SIZE,
+          ),
+      }
+  }
+  ```
+
+- `write` definition:
+
+  ```
+  pub fn write(&mut self, buf: &[u8]) -> usize {
+      let mut writelen = 0;
+      for chunk in buf.chunks(UART_TX_BUF_SIZE) {
+              self.ifram.as_slice_mut()[..chunk.len()].copy_from_slice(chunk);
+              unsafe {
+                  self.udma_enqueue(
+                      Bank::Tx,
+                      &self.ifram.as_phys_slice::<u8>()[..chunk.len()],
+                      CFG_EN | CFG_SIZE_8,
+                  );
+                  writelen += chunk.len();
+              }
+          self.wait_tx_done();
+      }
+      writelen
+  }
+  ```
+
+- `udma_enqueue` definition:
+
+  ```
+  unsafe fn udma_enqueue<T>(&self, bank: Bank, buf: &[T], config: u32) {
+      let bank_addr = self.csr().base().add(bank as usize);
+      let buf_addr = buf.as_ptr() as u32;
+      bank_addr.add(DmaReg::Saddr.into()).write_volatile(buf_addr);
+      bank_addr.add(DmaReg::Size.into()).write_volatile(
+          (buf.len() * size_of::<T>()) as u32);
+      bank_addr.add(DmaReg::Cfg.into()).write_volatile(
+          config | CFG_EN | CFG_BACKPRESSURE)
+  }
+  ```
+
+**CAUTION:** The UDMA engine expects its source data to come from the IFRAM
+buffers, **which are outside the regular RAM**. The IFRAM address space is a
+totally different thing, a 256kB region of buffers mapped to its own address
+range starting at 0x50000000.
+
+IFRAM address details:
+
+```
+pub const HW_IFRAM0_MEM:     usize = 0x50000000;
+pub const HW_IFRAM0_MEM_LEN: usize = 131072;  // 128 kB
+pub const HW_IFRAM1_MEM:     usize = 0x50020000;
+pub const HW_IFRAM1_MEM_LEN: usize = 131072;  // 128 kB
+```
+
+The only way to send anything on the UDMA UART is to set up a DMA transaction.
+So, you have to set up an `unsafe` buffer in IFRAM, copy your data there, then
+start a UDMA transaction to read from the buffer.
