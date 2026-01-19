@@ -29,14 +29,32 @@ this code once I've got it working. The point is to document how to do it.
    Arduino, CircuitPython, Lua, MicroPython, Zephyr, or whatever.
 
 
+Maybes (these would be nice to have but perhaps too ambitious):
+
+1. USB UVC video output as a capture-card-friendly display option?
+
+2. USB audio output?
+
+3. USB CDC-ECM networking with HTTP server and HTML GUI? The idea here is
+   enabling interactive graphical apps without the need for high bandwidth
+   display interface hardware. Possible applications: personal organizer or
+   game apps with dabao-managed encrypted storage (ReRAM or SD card) where your
+   data is somewhat firewalled off from the host computer, HTML games that use
+   the host computer's GPU but store save files on dabao, low-latency audio
+   synths with with Lua scripting (running on dabao) and GUI controls (accessed
+   using host computer's browser). Main potential pitfalls: browser security
+   policy limitations on content from HTTP pages (secure context policies).
+
+
 ### Intended Applications
 
 The Bao1x features are tailored to making portable devices with small displays,
 simple controls, hardware accelerated cryptography, DMA accelerated IO (UART,
 I2C, camera, SPI, SDIO, ADC), and MMU based memory protection. The CPU and BIO
 cores are relatively fast, but they don't support floating point. Tasks like
-decoding QR codes from a camera module, driving a monochrome 128x128 OLED, or
-synthesizing audio with fixed-point DSP should work well.
+decoding QR codes from a camera module, driving a monochrome 128x128 OLED,
+driving LED strips, or synthesizing audio with fixed-point DSP should work
+well.
 
 The Bao1x doesn't have direct hardware support for a USB host interface or for
 driving high bandwidth displays. With enough effort, it's possible you might
