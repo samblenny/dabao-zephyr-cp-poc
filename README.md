@@ -493,74 +493,17 @@ up and ready to use (but it's best to re-initialize them anyway).
 
 Some relevant UDMA UART code snippets from xous-core:
 
-- TX usage:
-
-  ```
-  let mut udma_uart = unsafe {
-      // safety: this is safe to call, because we set up clock and events prior
-      // to calling new.
-      udma::Uart::get_handle(
-          utra::udma_uart_2::HW_UDMA_UART_2_BASE,
-          uart_buf_addr,
-          uart_buf_addr,
-      )
-  };
-  udma_uart.write(&buf);
-  ```
+- TX usage (`putc` definition):
+  [xous-core/libs/bao1x-hal/src/debug.rs#L12-L26](https://github.com/betrusted-io/xous-core/blob/5eec0702f9a989144739ff08d419ed7445c2ecc9/libs/bao1x-hal/src/debug.rs#L12-L26)
 
 - `get_handle` definition:
-
-  ```
-  pub unsafe fn get_handle(csr_virt_addr: usize, udma_phys_addr: usize,
-  udma_virt_addr: usize) -> Self {
-      assert!(UART_RX_BUF_SIZE + UART_TX_BUF_SIZE == 4096,
-          "Configuration error in UDMA UART");
-      let csr = CSR::new(csr_virt_addr as *mut u32);
-      Uart {
-          csr,
-          ifram: IframRange::from_raw_parts(
-              udma_phys_addr,
-              udma_virt_addr,
-              UART_RX_BUF_SIZE + UART_TX_BUF_SIZE,
-          ),
-      }
-  }
-  ```
+  [xous-core/libs/bao1x-hal/src/udma/uart.rs#L110-L125](https://github.com/betrusted-io/xous-core/blob/5eec0702f9a989144739ff08d419ed7445c2ecc9/libs/bao1x-hal/src/udma/uart.rs#L110-L125)
 
 - `write` definition:
-
-  ```
-  pub fn write(&mut self, buf: &[u8]) -> usize {
-      let mut writelen = 0;
-      for chunk in buf.chunks(UART_TX_BUF_SIZE) {
-              self.ifram.as_slice_mut()[..chunk.len()].copy_from_slice(chunk);
-              unsafe {
-                  self.udma_enqueue(
-                      Bank::Tx,
-                      &self.ifram.as_phys_slice::<u8>()[..chunk.len()],
-                      CFG_EN | CFG_SIZE_8,
-                  );
-                  writelen += chunk.len();
-              }
-          self.wait_tx_done();
-      }
-      writelen
-  }
-  ```
+  [xous-core/libs/bao1x-hal/src/udma/uart.rs#L184-L224](https://github.com/betrusted-io/xous-core/blob/5eec0702f9a989144739ff08d419ed7445c2ecc9/libs/bao1x-hal/src/udma/uart.rs#L184-L224)
 
 - `udma_enqueue` definition:
-
-  ```
-  unsafe fn udma_enqueue<T>(&self, bank: Bank, buf: &[T], config: u32) {
-      let bank_addr = self.csr().base().add(bank as usize);
-      let buf_addr = buf.as_ptr() as u32;
-      bank_addr.add(DmaReg::Saddr.into()).write_volatile(buf_addr);
-      bank_addr.add(DmaReg::Size.into()).write_volatile(
-          (buf.len() * size_of::<T>()) as u32);
-      bank_addr.add(DmaReg::Cfg.into()).write_volatile(
-          config | CFG_EN | CFG_BACKPRESSURE)
-  }
-  ```
+  [xous-core/libs/bao1x-hal/src/udma/mod.rs#L253-L274](https://github.com/betrusted-io/xous-core/blob/main/libs/bao1x-hal/src/udma/mod.rs#L253-L274)
 
 **CAUTION:** The UDMA engine expects its source data to come from the IFRAM
 buffers, **which are outside the regular RAM**. The IFRAM address space is a
