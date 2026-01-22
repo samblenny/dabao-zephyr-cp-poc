@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: MIT
 # SPDX-FileCopyrightText: Copyright 2026 Sam Blenny
 """
-Sign a binary for Baochip Bao1x bootloader and encode signed result as UF2.
+Sign a binary firmware blob for Baochip Bao1x bootloader. This needs to be
+followed by a UF2 packing stage, but that happens with a different script.
 
 Usage:
 
-    python3 signer.py <presign-in.img> <signed-out.uf2>
+    python3 signer.py <firmware.bin> <signed-blob.img>
 
 This is a re-implimentation of xous-core/tools/src/bin/sign_image.rs intended
 to facilitate bare metal development for Baochip free of Xous dependencies.
@@ -29,10 +30,6 @@ MC4CAQAwBQYDK2VwBCIEIKindlyNoteThisIsADevKeyDontUseForProduction
 -----END PRIVATE KEY-----"""
 # Raw key bytes using a PEM + ASN.1 decoder for the impatient
 DEV_KEY_RAW = base64.b64decode(DEV_KEY_PEM.split('\n')[1])[-32:]
-
-# UF2 constants
-BAOCHIP_1X_UF2_FAMILY = 0xa7d7_6373
-BAREMETAL_START = 0x60060000
 
 # Length of signature block including SignatureInFlash and SealedData's header
 SIGBLOCK_LEN = 768
@@ -140,14 +137,14 @@ class SealedData:
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python3 signer.py <presign-in.img> <signed-out.uf2>")
+        print("Usage: python3 signer.py <firmware.bin> <signed-blob.img>")
         sys.exit(1)
 
     assert test_ed25519ph(), "ed25519 test vector signing failed"
 
     with open(sys.argv[1], "rb") as f:
         payload = f.read()
-    print(f"payload file size is {len(payload)} bytes")
+    print(f"binary payload size is {len(payload)} bytes")
     # Check if file already has the sealed_data header. If so, slice it off.
     starts_with_jal = payload[:4] == bytes.fromhex("6f000030")
     matches_magic = payload[0x88:0x90] == b'ymuy3oaB'
@@ -163,12 +160,10 @@ def main():
 
     blob = bytes(SealedData(payload, min_semver=min_semver, semver=semver))
     signed_blob = SignedBlob(DEV_KEY_RAW, sealed_data=blob)
-
-    uf2 = uf2ify(bytes(signed_blob), BAOCHIP_1X_UF2_FAMILY, BAREMETAL_START)
     outfile = sys.argv[2]
     with open(outfile, "wb") as f:
-        f.write(uf2)
-    print(f"Signed baremetal image written to {outfile}")
+        f.write(bytes(signed_blob))
+    print(f"Signed firmware blob written to {outfile}")
 
 
 # ===========================================================================
@@ -240,52 +235,7 @@ def test_ed25519ph():
         'a10b8c61e636062aaad11c2a26083406'
     )
     buf = ed25519ph_sign(secret_key, public_key, message)
-    print("ed25519ph_sign(skey, message) =", buf)
-    print("test vector signature = ", signature)
     return buf == signature
-
-
-# ==================
-# UF2 Encoding Stuff
-# ==================
-
-UF2_MAGIC_START0 = 0x0A324655  # "UF2\n"
-UF2_MAGIC_START1 = 0x9E5D5157
-UF2_MAGIC_END = 0x0AB16F30
-
-def uf2ify(data, family_id, app_start_addr):
-    """Convert a binary blob into UF2 format (512-byte blocks)."""
-    print(f"uf2ify data is {len(data)} bytes")
-    nblocks = (len(data) + 255) // 256
-    datapad = bytes(512 - 256 - 32 - 4)
-    out = bytearray()
-
-    for blockno in range(nblocks):
-        ptr = 256 * blockno
-        chunk = data[ptr:ptr + 256]
-        if len(chunk) < 256:
-            chunk += b'\x00' * (256 - len(chunk))
-
-        flags = 0x2000 if family_id != 0 else 0
-
-        header = struct.pack(
-            "<8I",
-            UF2_MAGIC_START0,
-            UF2_MAGIC_START1,
-            flags,
-            ptr + app_start_addr,
-            256,
-            blockno,
-            nblocks,
-            family_id
-        )
-
-        out += header
-        out += chunk
-        out += datapad
-        out += struct.pack("<I", UF2_MAGIC_END)
-
-    return bytes(out)
 
 
 if __name__ == "__main__":

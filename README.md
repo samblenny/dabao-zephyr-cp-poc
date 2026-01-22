@@ -91,6 +91,57 @@ The Plan:
    support (I2C sensors, SPI displays, USB, etc).
 
 
+## Building Examples
+
+This uses a Makefile to orchestrate `cargo build` along with some llvm tools
+for post build binary manipulation and a couple Python scripts to sign and UF2
+pack the firmware blob.
+
+The key things to notice in the output below are the sizes and LMA/VMA
+addresses for the .firmware and .data sections. Note that .firmware is a
+combination of .text and .rodata (see link.x linker script for details).
+
+```
+$ make blinky
+cargo clean
+     Removed 38 files, 123.2KiB total
+cargo build --example blinky
+   Compiling dabao-baremetal-poc v0.1.0 (/home/sam/code/dabao-baremetal-poc)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
+objdump -h target/riscv32imac-unknown-none-elf/debug/examples/blinky
+
+target/riscv32imac-unknown-none-elf/debug/examples/blinky:     file format elf32-little
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .firmware     00000280  60060300  60060300  00000300  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  1 .data         00000010  61000000  60060580  00001000  2**2
+                  CONTENTS, ALLOC, LOAD, DATA
+  2 .bss          00000000  61000010  60060590  00001010  2**0
+                  ALLOC
+---
+# Checking .data section LMA (FLASH) and VMA (RAM) addresses:
+llvm-objdump -t blinky | grep _data
+61000000 g       .data	00000000 _data_vma
+60060580 g       *ABS*	00000000 _data_lma
+00000010 g       *ABS*	00000000 _data_size
+---
+# Extracting loadable sections to .bin file:
+llvm-objcopy -O binary blinky blinky.bin
+---
+# Signing .bin file:
+python3 signer.py target/riscv32imac-unknown-none-elf/debug/examples/blinky.bin target/riscv32imac-unknown-none-elf/debug/examples/blinky.img
+binary payload size is 656 bytes
+Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.img
+---
+# Packing signed blob as UF2:
+python3 uf2ify.py target/riscv32imac-unknown-none-elf/debug/examples/blinky.img target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
+signed blob file size is 1424 bytes
+uf2ify data is 1424 bytes
+UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
+```
+
 
 ## Pinout & Electrical Ratings
 

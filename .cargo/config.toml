@@ -6,6 +6,6 @@ linker = "rust-lld"
 rustflags = [
     "-C", "panic=abort",
     "-C", "opt-level=s",
-    "-C", "link-arg=-s",        # Strip debug symbols
+    "-C", "debuginfo=none",  # Strip unimportant symbols
     "-C", "link-arg=-Tlink.x",  # Use the custom linker script
 ]
