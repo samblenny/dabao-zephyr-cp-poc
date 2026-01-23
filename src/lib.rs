@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: Copyright 2026 Sam Blenny
 //
-//! This module provides bare-metal initialization and hardware drivers.
-
+//! Bare-metal initialization and hardware drivers for bao1x dabao
 #![no_std]
 #![no_main]
+
+pub mod d11ctime;
+pub mod gpio;
 
 use core::arch::asm;
 use core::panic::PanicInfo;
