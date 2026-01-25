@@ -102,10 +102,10 @@ addresses for the .firmware and .data sections. Note that .firmware is a
 combination of .text and .rodata (see link.x linker script for details).
 
 
-### src/blinky.rs
+### examples/blinky.rs
 
-See comments in [src/blinky.rs](src/blinky.rs) for more details on what this
-does.
+See comments in [examples/blinky.rs](examples/blinky.rs) for more details on
+what this does.
 
 ```
 $ make blinky
@@ -148,9 +148,10 @@ uf2ify data is 1712 bytes
 UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
 ```
 
-### src/uart.rs
+### examples/uart.rs
 
-See comments in [src/uart.rs](src/uart.rs) for more details on what this does.
+See comments in [examples/uart.rs](examples/uart.rs) for more details on what
+this does.
 
 ```
 $ make uart
