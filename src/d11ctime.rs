@@ -42,8 +42,14 @@ pub const ACLK_FREQ_HZ: u32 = 350_000_000;
 ///
 /// Set this to the number of ACLK cycles for the desired interval.
 /// At 350 MHz, 350_000_000 = 1 second.
+///
+/// # Safety
+///
+/// This function is safe to call because the firmware runs single-threaded.
+/// Concurrent timer access from multiple threads would cause data races, but
+/// that is not possible in this environment.
 #[inline]
-pub unsafe fn set_interval(cycles: u32) {
+pub fn set_interval(cycles: u32) {
     unsafe {
         core::ptr::write_volatile(CONTROL, cycles);
     }
@@ -53,8 +59,14 @@ pub unsafe fn set_interval(cycles: u32) {
 ///
 /// Returns the current state of bit 0 of the heartbeat register.
 /// Toggles each time the interval expires.
+///
+/// # Safety
+///
+/// This function is safe to call because the firmware runs single-threaded.
+/// Concurrent timer access from multiple threads would cause data races, but
+/// that is not possible in this environment.
 #[inline]
-pub unsafe fn read_heartbeat() -> u32 {
+pub fn read_heartbeat() -> u32 {
     unsafe { core::ptr::read_volatile(HEARTBEAT) & 1 }
 }
 
