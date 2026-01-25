@@ -101,30 +101,36 @@ The key things to notice in the output below are the sizes and LMA/VMA
 addresses for the .firmware and .data sections. Note that .firmware is a
 combination of .text and .rodata (see link.x linker script for details).
 
+
+### src/blinky.rs
+
+See comments in [src/blinky.rs](src/blinky.rs) for more details on what this
+does.
+
 ```
 $ make blinky
 cargo clean
-     Removed 38 files, 123.2KiB total
+     Removed 42 files, 1000.5KiB total
 cargo build --example blinky
    Compiling dabao-baremetal-poc v0.1.0 (/home/sam/code/dabao-baremetal-poc)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.18s
 objdump -h target/riscv32imac-unknown-none-elf/debug/examples/blinky
 
 target/riscv32imac-unknown-none-elf/debug/examples/blinky:     file format elf32-little
 
 Sections:
 Idx Name          Size      VMA       LMA       File off  Algn
-  0 .firmware     00000280  60060300  60060300  00000300  2**1
+  0 .firmware     000003a0  60060300  60060300  00000300  2**1
                   CONTENTS, ALLOC, LOAD, READONLY, CODE
-  1 .data         00000010  61000000  60060580  00001000  2**2
+  1 .data         00000010  61000000  600606a0  00001000  2**2
                   CONTENTS, ALLOC, LOAD, DATA
-  2 .bss          00000000  61000010  60060590  00001010  2**0
+  2 .bss          00000000  61000010  600606b0  00001010  2**0
                   ALLOC
 ---
 # Checking .data section LMA (FLASH) and VMA (RAM) addresses:
 llvm-objdump -t blinky | grep _data
 61000000 g       .data	00000000 _data_vma
-60060580 g       *ABS*	00000000 _data_lma
+600606a0 g       *ABS*	00000000 _data_lma
 00000010 g       *ABS*	00000000 _data_size
 ---
 # Extracting loadable sections to .bin file:
@@ -132,14 +138,59 @@ llvm-objcopy -O binary blinky blinky.bin
 ---
 # Signing .bin file:
 python3 signer.py target/riscv32imac-unknown-none-elf/debug/examples/blinky.bin target/riscv32imac-unknown-none-elf/debug/examples/blinky.img
-binary payload size is 656 bytes
+binary payload size is 944 bytes
 Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.img
 ---
 # Packing signed blob as UF2:
 python3 uf2ify.py target/riscv32imac-unknown-none-elf/debug/examples/blinky.img target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
-signed blob file size is 1424 bytes
-uf2ify data is 1424 bytes
+signed blob file size is 1712 bytes
+uf2ify data is 1712 bytes
 UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
+```
+
+### src/uart.rs
+
+See comments in [src/uart.rs](src/uart.rs) for more details on what this does.
+
+```
+$ make uart
+cargo clean
+     Removed 42 files, 951.2KiB total
+cargo build --example uart
+   Compiling dabao-baremetal-poc v0.1.0 (/home/sam/code/dabao-baremetal-poc)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.19s
+objdump -h target/riscv32imac-unknown-none-elf/debug/examples/uart
+
+target/riscv32imac-unknown-none-elf/debug/examples/uart:     file format elf32-little
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .firmware     00000e60  60060300  60060300  00000300  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  1 .data         00000010  61000000  60061160  00002000  2**2
+                  CONTENTS, ALLOC, LOAD, DATA
+  2 .bss          00000020  61000010  61000010  00002010  2**2
+                  ALLOC
+---
+# Checking .data section LMA (FLASH) and VMA (RAM) addresses:
+llvm-objdump -t uart | grep _data
+61000000 g       .data	00000000 _data_vma
+60061160 g       *ABS*	00000000 _data_lma
+00000010 g       *ABS*	00000000 _data_size
+---
+# Extracting loadable sections to .bin file:
+llvm-objcopy -O binary uart uart.bin
+---
+# Signing .bin file:
+python3 signer.py target/riscv32imac-unknown-none-elf/debug/examples/uart.bin target/riscv32imac-unknown-none-elf/debug/examples/uart.img
+binary payload size is 3696 bytes
+Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/uart.img
+---
+# Packing signed blob as UF2:
+python3 uf2ify.py target/riscv32imac-unknown-none-elf/debug/examples/uart.img target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2
+signed blob file size is 4464 bytes
+uf2ify data is 4464 bytes
+UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2
 ```
 
 
