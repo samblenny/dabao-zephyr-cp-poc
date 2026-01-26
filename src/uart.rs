@@ -102,10 +102,10 @@ const UART_SETUP_VALUE: u32 = 0x0316 | (UART_DIVISOR << 16);
 // TX_BLOCK_LEN[i] stores the actual byte count for block i (0 = empty/done).
 // When TX_NEXT_BLOCK == TX_QUEUE_HEAD and both have pending data, the
 // buffer is full.
-static mut TX_NEXT_BLOCK: usize = 0;    // Block index for next write()
+static mut TX_NEXT_BLOCK: usize = 0; // Block index for next write()
 static mut TX_BLOCK_LEN: [u8; TX_BLOCK_COUNT] = [0; 16];
-static mut TX_QUEUE_HEAD: usize = 0;    // Block index for next DMA
-static mut TX_IN_FLIGHT: bool = false;  // DMA transfer active
+static mut TX_QUEUE_HEAD: usize = 0; // Block index for next DMA
+static mut TX_IN_FLIGHT: bool = false; // DMA transfer active
 
 // ============================================================================
 // Public API
@@ -126,7 +126,9 @@ pub fn init() {
         let cg = ptr::read_volatile(UDMA_REG_CG);
         ptr::write_volatile(UDMA_REG_CG, cg | UART2_CLK_BIT);
         // Ensure clock enable completes before configuring UART
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+        core::sync::atomic::compiler_fence(
+            core::sync::atomic::Ordering::SeqCst,
+        );
 
         // Configure UART_SETUP for 8N1, 1 Mbps
         // The bootloader has already reset the UART, so we just configure it.
@@ -194,7 +196,9 @@ pub fn write(data: &[u8]) -> usize {
             // Next write() will use a fresh block
             TX_NEXT_BLOCK = (block + 1) % TX_BLOCK_COUNT;
             // Ensure block state is visible to tick() before returning
-            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
+            core::sync::atomic::compiler_fence(
+                core::sync::atomic::Ordering::Release,
+            );
         }
 
         // If TX is idle, start DMA for any ready blocks
@@ -231,7 +235,9 @@ pub fn getc() -> Option<u8> {
 pub fn tick() {
     unsafe {
         // Ensure we see the latest DMA state
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+        core::sync::atomic::compiler_fence(
+            core::sync::atomic::Ordering::Acquire,
+        );
         // Check if current transfer is complete
         let tx_saddr = ptr::read_volatile(REG_TX_SADDR);
         if tx_saddr == 0 && TX_IN_FLIGHT {
@@ -245,8 +251,8 @@ pub fn tick() {
         if !TX_IN_FLIGHT && TX_QUEUE_HEAD != TX_NEXT_BLOCK {
             let len = TX_BLOCK_LEN[TX_QUEUE_HEAD];
             if len > 0 {
-                let addr = (IFRAM_TX_ADDR +
-                            TX_QUEUE_HEAD * TX_BLOCK_SIZE) as u32;
+                let addr =
+                    (IFRAM_TX_ADDR + TX_QUEUE_HEAD * TX_BLOCK_SIZE) as u32;
                 ptr::write_volatile(REG_TX_SADDR, addr);
                 ptr::write_volatile(REG_TX_SIZE, len as u32);
                 ptr::write_volatile(REG_TX_CFG, CFG_EN);

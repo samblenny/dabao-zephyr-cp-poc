@@ -89,10 +89,10 @@ pub enum GpioPin {
 }
 
 pub enum AF {
-    AF0 = 0,   // GPIO (default)
-    AF1 = 1,   // UART2, I2C0, I2C1, CAM, SPIM2
-    AF2 = 2,   // SDIO, SPIM1, I2SS, I2SM, SPIS
-    AF3 = 3,   // Timer PWM outputs
+    AF0 = 0, // GPIO (default)
+    AF1 = 1, // UART2, I2C0, I2C1, CAM, SPIM2
+    AF2 = 2, // SDIO, SPIM1, I2SS, I2SM, SPIS
+    AF3 = 3, // Timer PWM outputs
 }
 
 pub const PB1: PortBPin = PortBPin(1 << 1);
@@ -387,6 +387,8 @@ pub fn set_alternate_function(pin: GpioPin, af: AF) {
         let new_val = (current & !mask_2bit) | ((af as u16) << bit_pos);
         core::ptr::write_volatile(reg, new_val);
         // Ensure AF register is set before any GPIO configuration follows
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+        core::sync::atomic::compiler_fence(
+            core::sync::atomic::Ordering::SeqCst,
+        );
     }
 }

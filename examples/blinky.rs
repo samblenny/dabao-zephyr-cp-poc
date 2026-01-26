@@ -7,7 +7,7 @@
 extern crate dabao_baremetal_poc;
 
 use dabao_baremetal_poc::{d11ctime, gpio};
-use gpio::{GpioPin, AF};
+use gpio::{AF, GpioPin};
 
 /// Blinky example for bao1x dabao evaluation board
 ///

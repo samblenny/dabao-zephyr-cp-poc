@@ -7,7 +7,7 @@
 extern crate dabao_baremetal_poc;
 
 use dabao_baremetal_poc::{d11ctime, gpio, uart};
-use gpio::{GpioPin, AF};
+use gpio::{AF, GpioPin};
 
 /// UART example for bao1x dabao evaluation board
 ///
