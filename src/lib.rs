@@ -54,6 +54,17 @@ pub extern "C" fn _start() -> ! {
     }
 }
 
+/// Sleep for specified milliseconds, servicing UART DMA.
+///
+/// Blocks until the specified time has elapsed, calling uart::tick()
+/// periodically to service the TX DMA queue.
+pub fn sleep(ms: u32) {
+    let end_time = ticktimer::millis() + ms as u64;
+    while ticktimer::millis() < end_time {
+        uart::tick();
+    }
+}
+
 /// Initialize system state and peripherals at boot.
 ///
 /// Copies .data section from FLASH to RAM, zeros .bss section, and
