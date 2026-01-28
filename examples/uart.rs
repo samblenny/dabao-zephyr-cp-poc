@@ -9,24 +9,19 @@ use gpio::{AF, GpioPin};
 
 /// UART example for bao1x dabao evaluation board
 ///
-/// Initializes UART2 and demonstrates the ticktimer module by repeatedly
-/// printing "hello, world!" with the current millisecond timestamp
-/// (from the TICKTIMER peripheral). Waits for button press/release cycles
-/// on the PROG button (PC13) between prints, using ticktimer::millis() for
-/// debouncing. Uses uart::tick() to service the DMA TX queue.
+/// Demonstrates UART2 and the ticktimer module by repeatedly printing
+/// "hello, world!" with the current millisecond timestamp (from the TICKTIMER
+/// peripheral). Waits for button press/release cycles on the PROG button
+/// (PC13) between prints, using crate::sleep() for debouncing. Uses
+/// uart::tick() to service the DMA TX queue.
 #[unsafe(no_mangle)]
 pub extern "C" fn main() -> ! {
-    // Configure PB13 and PB14 for UART2
-    gpio::set_alternate_function(GpioPin::PortB(gpio::PB13), AF::AF1);
-    gpio::set_alternate_function(GpioPin::PortB(gpio::PB14), AF::AF1);
-
     // Configure PC13 (PROG button) as input with pull-up
     gpio::set_alternate_function(GpioPin::PortC(gpio::PC13), AF::AF0);
     gpio::disable_output(GpioPin::PortC(gpio::PC13));
     gpio::enable_pullup(GpioPin::PortC(gpio::PC13));
 
-    // Initialize UART2
-    uart::init();
+    // UART2 initialization happens at boot time in crate::init()
 
     loop {
         // Print message prefix

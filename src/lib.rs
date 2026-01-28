@@ -18,6 +18,7 @@ pub mod uart;
 
 use core::arch::asm;
 use core::panic::PanicInfo;
+use gpio::{AF, GpioPin};
 
 unsafe extern "C" {
     fn _data_lma(); //  Start .data in FLASH (ReRAM)
@@ -82,6 +83,10 @@ fn init() {
         let start = _bss_vma as *mut u8;
         let size = _bss_size as *const u8 as usize;
         core::ptr::write_bytes(start, 0, size);
+
+        // Configure PB13 and PB14 for UART2
+        gpio::set_alternate_function(GpioPin::PortB(gpio::PB13), AF::AF1);
+        gpio::set_alternate_function(GpioPin::PortB(gpio::PB14), AF::AF1);
 
         // Initialize UART first so it's available for debug output
         uart::init();
