@@ -242,7 +242,7 @@ pub unsafe extern "C" fn _trap() -> ! {
         "csrw   mscratch, sp",
 
         // Set SP to scratch page
-        "la     sp, {scratch_stack}",
+        "la     sp, {0}", // sym _scratch_stack
 
         // Allocate space for registers leaving sp aligned to 16 bytes
         "addi sp, sp, -(36*4)",
@@ -291,102 +291,18 @@ pub unsafe extern "C" fn _trap() -> ! {
         "csrr   t0, mscratch",
         "sw     t0, 1*4(sp)",
 
+        // =========================================
+        // Call to Rust: Dispatch interrupt handlers
+        // =========================================
 
-        // Call Rust trap handler
-        "call   {trap_handler}",
+        "call   {1}", // sym _trap_handler_rust
 
-        scratch_stack = sym _scratch_stack,
-        trap_handler = sym _trap_handler_rust,
-    );
-}
+        // ========================================================
+        // Exit Routine: Restore all registers and return from trap
+        // ========================================================
 
-// ====================================================================
-// Rust Trap Dispatcher
-// ====================================================================
-
-/// Rust-level trap handler dispatcher
-///
-/// Reads mcause to determine interrupt type, checks IRQARRAY0 pending
-/// events, and dispatches to appropriate handler.
-#[unsafe(export_name = "_trap_handler_rust")]
-pub extern "C" fn _trap_handler_rust() -> ! {
-    // Debug: Turn on LED at PB12 to indicate trap was hit
-    crate::gpio::set_alternate_function(
-        crate::gpio::GpioPin::PortB(crate::gpio::PB12),
-        crate::gpio::AF::AF0,
-    );
-    crate::gpio::enable_output(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
-    crate::gpio::set(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
-
-    // Read mcause and mip for dispatch
-    let mcause = csr_read(MCAUSE);
-
-    // Check if this is an external interrupt
-    if mcause == MCAUSE_EXTERNAL_INT {
-        // CRITICAL: VexRISCV overloads the normal RISC-V CSR named "mip" with
-        // a different meaning and a different CSR number. It's very confusing!
-        // At https://docs.riscv.org/reference/isa/priv/priv-csrs.html, mip is
-        // listed as CSR number 0x343 in the Machine Trap Handling section. At
-        // xous-core/imports/riscv-0.5.6/src/register/vexriscv/mip.rs on the
-        // bettrusted-io GitHub, mip is defined as CSR 0xFC0. And, if you look
-        // at the `let irqs_pending = mip::read();` usage in
-        // xous-core/baremetal/src/platform/bao1x/irq.rs, you can see that it's
-        // used as a bitfield corresponding to the assigned interrupt numbers
-        // listed at https://ci.betrusted.io/bao1x-cpu/interrupts.html
-
-        let pending = csr_read(VEX_MIP);
-
-        // Check for TIMER0 event
-        if pending & VEX_MIP_TIMER0_BIT != 0 {
-            crate::log!("VEX_MIP_TIMER0_BIT\r\n");
-            crate::sleep(2);
-            timer0_handler();
-        } else {
-            // Add more event checks here as needed (UART, USB, etc.)
-            crate::log!("  TRAP: external interrupt ???\r\n");
-            crate::sleep(2);
-        }
-
-    } else if mcause == MCAUSE_ILLEGAL_INST {
-        crate::log!("\r\nTRAP: illegal instruction\r\n");
-        crate::sleep(2);
-        loop {}
-    } else if mcause == MCAUSE_LOAD_ACCESS {
-        let mtval = csr_read(MTVAL);
-        crate::log!("\r\nTRAP: load access, mtval=0x{:08x}", mtval);
-        crate::sleep(2);
-        loop {}
-    } else {
-        // Unknown exception
-        crate::log!("\r\nTRAP: mcause=0x{:08x}\r\n", mcause);
-        crate::sleep(2);
-        loop {}
-    }
-
-    // Turn off LED before returning
-    crate::gpio::clear(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
-    crate::log!("  trap returning\r\n");
-    crate::sleep(10);
-
-    // Restore context and return from trap
-    unsafe {
-        _resume_context();
-    }
-}
-
-// ====================================================================
-// Context Restore and mret
-// ====================================================================
-
-/// Restore registers and return from trap
-///
-/// Loads all registers from scratch page and executes mret to resume
-/// interrupted code.
-#[unsafe(naked)]
-pub unsafe extern "C" fn _resume_context() -> ! {
-    naked_asm!(
         // Set SP to scratch page
-        "la     sp, {scratch_stack}",
+        "la     sp, {0}", // sym _scratch_stack
 
         // Adjust sp to match the trap frame allocation in the entry routine
         // CAUTION: This assumes nested traps are not allowed
@@ -424,19 +340,93 @@ pub unsafe extern "C" fn _resume_context() -> ! {
         "lw     x29, 28*4(sp)", // t4
         "lw     x30, 29*4(sp)", // t5
         "lw     x31, 30*4(sp)", // t6
+
         // Load mepc
         "lw     t0, 31*4(sp)",
         "csrw   mepc, t0",
-        // Load original SP
-        "lw     x2, 1*4(sp)",
-        // Load mstatus (after sp to avoid interrupt with wrong sp)
+
+        // Load mstatus (at this point MIE is probably set)
         "lw     t0, 32*4(sp)",
+
+        // Ensure MIE bit is clear (mret will turn it on after we restorw sp)
+        "andi   t0, t0, ~(1 << 3)",
         "csrw   mstatus, t0",
+
+        // Load original SP (CAUTION: this must come last)
+        "lw     x2, 1*4(sp)",
+
         // Return from trap (restores PC from mepc)
         "mret",
 
-        scratch_stack = sym _scratch_stack,
+        // Rust docs say it's bad to use named labels like {foo}. Instead,
+        // we're supposed to use numeric labels like {0} or {1}. See:
+        // https://doc.rust-lang.org/rust-by-example/unsafe/asm.html#labels
+        sym _scratch_stack,
+        sym _trap_handler_rust,
     );
+}
+
+// ====================================================================
+// Rust Trap Dispatcher
+// ====================================================================
+
+/// Rust-level trap handler dispatcher
+///
+/// Reads mcause to determine interrupt type, checks IRQARRAY0 pending
+/// events, and dispatches to appropriate handler.
+pub extern "C" fn _trap_handler_rust() {
+    // Debug: Turn on LED at PB12 to indicate trap was hit
+    crate::gpio::set_alternate_function(
+        crate::gpio::GpioPin::PortB(crate::gpio::PB12),
+        crate::gpio::AF::AF0,
+    );
+    crate::gpio::enable_output(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
+    crate::gpio::set(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
+
+    // Read mcause and mip for dispatch
+    let mcause = csr_read(MCAUSE);
+
+    // Check if this is an external interrupt
+    if mcause == MCAUSE_EXTERNAL_INT {
+        // CRITICAL: VexRISCV overloads the normal RISC-V CSR named "mip" with
+        // a different meaning and a different CSR number. It's very confusing!
+        // At https://docs.riscv.org/reference/isa/priv/priv-csrs.html, mip is
+        // listed as CSR number 0x343 in the Machine Trap Handling section. At
+        // xous-core/imports/riscv-0.5.6/src/register/vexriscv/mip.rs on the
+        // bettrusted-io GitHub, mip is defined as CSR 0xFC0. And, if you look
+        // at the `let irqs_pending = mip::read();` usage in
+        // xous-core/baremetal/src/platform/bao1x/irq.rs, you can see that it's
+        // used as a bitfield corresponding to the assigned interrupt numbers
+        // listed at https://ci.betrusted.io/bao1x-cpu/interrupts.html
+
+        let pending = csr_read(VEX_MIP);
+
+        // Check for TIMER0 event
+        if pending & VEX_MIP_TIMER0_BIT != 0 {
+            timer0_handler();
+        } else {
+            // Add more event checks here as needed (UART, USB, etc.)
+            crate::log!("  TRAP: external vex_mip=0x{:08x}\r\n", pending);
+            crate::sleep(2);
+        }
+    } else if mcause == MCAUSE_ILLEGAL_INST {
+        crate::log!("\r\nTRAP: illegal instruction\r\n");
+        crate::sleep(2);
+        loop {}
+    } else if mcause == MCAUSE_LOAD_ACCESS {
+        let mtval = csr_read(MTVAL);
+        crate::log!("\r\nTRAP: load access, mtval=0x{:08x}", mtval);
+        crate::sleep(2);
+        loop {}
+    } else {
+        // Unknown exception
+        crate::log!("\r\nTRAP: mcause=0x{:08x}\r\n", mcause);
+        crate::sleep(2);
+        loop {}
+    }
+
+    // Turn off LED before returning
+    crate::gpio::clear(crate::gpio::GpioPin::PortB(crate::gpio::PB12));
 }
 
 // ====================================================================
@@ -447,6 +437,7 @@ pub unsafe extern "C" fn _resume_context() -> ! {
 ///
 /// Called from trap dispatcher when TIMER0 fires.
 /// Clears pending bit to allow next interrupt.
+#[inline]
 fn timer0_handler() {
     // Clear pending bit and ensure timer won't accidentally re-trigger
     crate::timer0::stop_and_clear();
@@ -455,5 +446,4 @@ fn timer0_handler() {
     if let Some(callback) = crate::timer0::get_callback() {
         callback();
     }
-    crate::log!("end of callback\r\n");
 }
