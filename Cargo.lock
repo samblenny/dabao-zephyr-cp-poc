@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "dabao-baremetal-poc"
+name = "dabao-sdk"
 version = "0.1.0"

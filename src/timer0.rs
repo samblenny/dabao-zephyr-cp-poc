@@ -25,7 +25,7 @@
 //! # Usage
 //!
 //! ```ignore
-//! use dabao_baremetal_poc::timer0;
+//! use dabao_sdk::timer0;
 //!
 //! fn alarm_callback() {
 //!     // Called when timer fires (in interrupt context)

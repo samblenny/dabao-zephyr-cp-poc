@@ -17,7 +17,7 @@
 //! can read the current time in milliseconds:
 //!
 //! ```ignore
-//! use dabao_baremetal_poc::ticktimer;
+//! use dabao_sdk::ticktimer;
 //!
 //! fn main() {
 //!     let start = ticktimer::millis();

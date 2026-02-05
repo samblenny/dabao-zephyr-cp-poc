@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- SPDX-FileCopyrightText: Copyright 2026 Sam Blenny -->
-# Dabao Baremetal PoC
+# Dabao SDK
 
 **DRAFT: WORK IN PROGRESS**
 
@@ -74,7 +74,7 @@ $ make blinky
 cargo clean
      Removed 42 files, 1000.5KiB total
 cargo build --example blinky
-   Compiling dabao-baremetal-poc v0.1.0 (/home/sam/code/dabao-baremetal-poc)
+   Compiling dabao_sdk v0.1.0 (/home/sam/code/dabao_sdk)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.18s
 objdump -h target/riscv32imac-unknown-none-elf/debug/examples/blinky
 
@@ -121,7 +121,7 @@ $ make uart
 cargo clean
      Removed 42 files, 951.2KiB total
 cargo build --example uart
-   Compiling dabao-baremetal-poc v0.1.0 (/home/sam/code/dabao-baremetal-poc)
+   Compiling dabao_sdk v0.1.0 (/home/sam/code/dabao_sdk)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.19s
 objdump -h target/riscv32imac-unknown-none-elf/debug/examples/uart
 

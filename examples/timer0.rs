@@ -31,8 +31,8 @@
 
 #![no_std]
 #![no_main]
-extern crate dabao_baremetal_poc;
-use dabao_baremetal_poc::{gpio, log, sleep, ticktimer, timer0, uart};
+extern crate dabao_sdk;
+use dabao_sdk::{gpio, log, sleep, ticktimer, timer0, uart};
 use gpio::{AF, GpioPin};
 use ticktimer::millis;
 
