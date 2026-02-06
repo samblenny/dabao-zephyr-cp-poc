@@ -82,6 +82,7 @@
 
 use crate::interrupt;
 use core::ptr;
+use core::slice;
 
 // ============================================================================
 // Constants
@@ -136,6 +137,39 @@ static mut TX_NEXT_BLOCK: usize = 0; // Block index for next write()
 static mut TX_BLOCK_LEN: [u8; TX_BLOCK_COUNT] = [0; 16];
 static mut TX_QUEUE_HEAD: usize = 0; // Block index for next DMA
 static mut TX_IN_FLIGHT: bool = false; // DMA transfer active
+
+// ============================================================================
+// C API Convenience Functions
+// ============================================================================
+
+/// Expose uart::write as an extern C function for C linkage.
+///
+/// Takes a null-terminated string and writes it to the UART.
+#[unsafe(no_mangle)]
+pub extern "C" fn uart_write(data: *const u8) {
+    // Safety: data pointer must not be null
+    if data.is_null() {
+        return;
+    }
+
+    // Find the length of the null-terminated string (max 2048 bytes)
+    let mut length = 0;
+    for i in 0..2048 {
+        unsafe {
+            if *data.add(i) == b'\0' {
+                length = i;
+                break;
+            }
+        }
+    }
+
+    // Slice the raw pointer into a Rust slice
+    let slice = unsafe {
+        slice::from_raw_parts(data, length)
+    };
+
+    write(slice);
+}
 
 // ============================================================================
 // Public API
@@ -265,7 +299,7 @@ pub fn getc() -> Option<u8> {
 ///
 /// Call periodically from the main event loop. Also called automatically
 /// by write() when needed.
-pub fn tick() {
+pub extern "C" fn tick() {
     let was_enabled = interrupt::disable_irqs();
     unsafe {
         // Ensure we see the latest DMA state
