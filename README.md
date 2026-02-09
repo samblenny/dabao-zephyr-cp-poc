@@ -244,6 +244,34 @@ UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2
   (source [README-baochip.md](https://github.com/betrusted-io/xous-core/blob/main/README-baochip.md))
 
 
+## Division and Precision Timing
+
+Notes from Bunnie on relative cost of math operations on the main CPU:
+- Division takes 34 cycles
+- Shifts use a barrel shifter, but there's a potential for data dependencies to
+  slow the pipeline. So, shift may take 1 or 2 cycles.
+
+Tracking time is really easy with TICKTIMER if you only need a 1 ms tick for
+the counter. But, it's potentially desirable to have separate µs and ms time
+functions available for fine and coarse resolution timing.
+
+1. If you use a 1 MHz tick, getting 1 µs timer resolution 64-bit counter is
+   just a matter of two register reads, a shift, and an or. But, to get a 1 ms
+   timestamp, you'd need to do a `/ 1000`. Division is slow, so it would be
+   nice to avoid that overhead.
+
+2. If you use a 1/1024 ms tick (1.024 MHz), you can calculate ms as
+   ```
+   let ms = tick >> 10;
+   ```
+   and µs as
+   ```
+   let us = (tick * 1000) >> 10;   // or simplify fraction: (tick * 125) >> 7
+   ```
+   In both cases, you can avoid the division. You can also use ticks directly
+   if you don't need the time of precise delays to be specified in SI units.
+
+
 ## UART Serial Console
 
 For UART serial debug output, you need a serial monitor that can do 1Mbaud. On
