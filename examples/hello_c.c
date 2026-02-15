@@ -1,7 +1,7 @@
 #include "baochip_sdk.h"
 #include <stdio.h>
 
-// Example C code using dabao_sdk Rust drivers.
+// Example C code using baochip_sdk Rust drivers.
 // This demonstrates how C code can call Rust driver functions.
 //
 // Key constraint: main() must never return. The Rust lib.rs _start()

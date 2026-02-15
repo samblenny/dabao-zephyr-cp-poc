@@ -13,7 +13,7 @@
 //! read and echo characters:
 //!
 //! ```ignore
-//! use dabao_sdk::{gpio, uart};
+//! use baochip_sdk::{gpio, uart};
 //! use gpio::{AF, GpioPin};
 //!
 //! fn main() {

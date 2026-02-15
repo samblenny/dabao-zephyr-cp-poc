@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "dabao-sdk"
+name = "baochip-sdk"
 version = "0.1.0"

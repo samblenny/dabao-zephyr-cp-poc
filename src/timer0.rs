@@ -25,7 +25,7 @@
 //! # Usage
 //!
 //! ```ignore
-//! use dabao_sdk::timer0;
+//! use baochip_sdk::timer0;
 //!
 //! fn alarm_callback() {
 //!     // Called when timer fires (in interrupt context)

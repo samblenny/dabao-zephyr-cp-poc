@@ -70,6 +70,26 @@ You're on your own for adapting to other Linux flavors, Windows, or macOS.
    the release builds of the libraries. This is for Debian. YMMV for Ubuntu.
 
 
+## Build libbaochip_sdk.a Library
+
+To build the library file for linking with C projects, do this:
+
+```
+$ cd code/baochip-sdk/
+$ make
+building target/riscv32imac-unknown-none-elf/release/libbaochip_sdk.a
+cargo clean
+     Removed 15 files, 16.4MiB total
+cargo build --lib --release
+   Compiling dabao-sdk v0.1.0 (/home/sam/code/baochip-sdk)
+    Finished `release` profile [optimized] target(s) in 0.19s
+```
+
+You'll need to `#include "baochip_sdk.h"` in your C code. Also be sure to add a
+gcc `-I<path>` argument with the correct relative path from your Makefile to
+[baochip_sdk.h](baochip_sdk.h) in the root of this repo.
+
+
 ## Building the Examples
 
 This uses a Makefile to orchestrate `cargo build` along with some llvm tools
@@ -103,7 +123,7 @@ riscv64-unknown-elf-ar rcs \
 	target/riscv32imac-unknown-none-elf/debug/examples/libhello_c.a \
 	target/riscv32imac-unknown-none-elf/debug/examples/hello_c.o
 ---
-# Building Rust SDK library (libdabao_sdk.a)...
+# Building Rust SDK library (libbaochip_sdk.a)...
 cargo build --lib
    Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
     Finished `dev` profile [optimized] target(s) in 0.19s
@@ -114,7 +134,7 @@ riscv64-unknown-elf-gcc \
 	-Tlink.x \
 	-Wl,--gc-sections \
 	-o target/riscv32imac-unknown-none-elf/debug/examples/hello_c.elf \
-	target/riscv32imac-unknown-none-elf/debug/libdabao_sdk.a \
+	target/riscv32imac-unknown-none-elf/debug/libbaochip_sdk.a \
 	target/riscv32imac-unknown-none-elf/debug/examples/libhello_c.a \
 	/usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32/libc.a \
 	-lgcc
@@ -132,6 +152,21 @@ UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/hello_c.
 ---
 cp target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2 examples/
 ```
+
+
+## Copy and Run UF2 File on macOS
+
+Once you have a signed and packed UF2 file, you can copy and run it like this
+(on macOS; YYMV for Linux):
+
+```
+$ cp hello_c.uf2 /Volumes/BAOCHIP && sync
+$ diskutil unmountDisk /dev/disk4   # assumes /Volumes/BAOCHIP was /dev/disk4s1
+Unmount of all volumes on disk4 was successful
+```
+
+After the disk is unmounted, press the Dabao PROG buttton to run the code
+(assuming your dabao bootloader is configured with bootwait enabled).
 
 
 ### examples/blinky.rs

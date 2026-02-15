@@ -19,7 +19,7 @@ CFLAGS := -I/usr/lib/picolibc/riscv64-unknown-elf/include \
 	-march=rv32imac -mabi=ilp32
 
 release:
-	@echo building target/riscv32imac-unknown-none-elf/release/libdabao_sdk.a
+	@echo building target/riscv32imac-unknown-none-elf/release/libbaochip_sdk.a
 	cargo clean
 	cargo build --lib --release
 
@@ -39,7 +39,7 @@ hello_c:
 		$(EXAMPLES)/libhello_c.a \
 		$(EXAMPLES)/hello_c.o
 	@echo '---'
-	@echo "# Building Rust SDK library (libdabao_sdk.a)..."
+	@echo "# Building Rust SDK library (libbaochip_sdk.a)..."
 	cargo build --lib
 	@echo '---'
 	@echo '# Linking C library with Rust library...'
@@ -48,7 +48,7 @@ hello_c:
 		-Tlink.x \
 		-Wl,--gc-sections \
 		-o $(EXAMPLES)/hello_c.elf \
-		$(TARGET_DIR)/libdabao_sdk.a \
+		$(TARGET_DIR)/libbaochip_sdk.a \
 		$(EXAMPLES)/libhello_c.a \
 		$(LIBC_DIR)/libc.a \
 		-lgcc
