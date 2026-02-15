@@ -3,10 +3,18 @@ name = "dabao-sdk"
 version = "0.1.0"
 edition = "2024"
 
+# Use both so we can link to Rust examples or C libraries that export a main
+[lib]
+crate-type = ["rlib", "staticlib"]
+
 [dependencies]
 
 [profile.dev]
 panic = "abort"       # Disable panic unwind
+opt-level = "s"
+debug = "none"
 
 [profile.release]
 panic = "abort"       # Disable panic unwind
+opt-level = "s"
+debug = "none"

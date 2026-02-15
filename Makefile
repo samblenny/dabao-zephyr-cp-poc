@@ -6,10 +6,11 @@
 
 STABLE_LIB := $(HOME)/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib
 LLVM_BIN := $(STABLE_LIB)/rustlib/x86_64-unknown-linux-gnu/bin
-TARGET_DIR := target/riscv32imac-unknown-none-elf/debug/examples
-BLINKY := $(TARGET_DIR)/blinky
-UART := $(TARGET_DIR)/uart
-TIMER0 := $(TARGET_DIR)/timer0
+TARGET_DIR := target/riscv32imac-unknown-none-elf/debug
+EXAMPLES := $(TARGET_DIR)/examples
+BLINKY := $(EXAMPLES)/blinky
+UART := $(EXAMPLES)/uart
+TIMER0 := $(EXAMPLES)/timer0
 
 # Picolibc include and lib paths
 LIBC_DIR := /usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32
@@ -18,35 +19,45 @@ CFLAGS := -I/usr/lib/picolibc/riscv64-unknown-elf/include \
 
 hello_c:
 	cargo clean
-	mkdir -p $(TARGET_DIR)/examples
+	mkdir -p $(EXAMPLES)
 	@echo '---'
 	@echo "# Compiling C code..."
-	riscv64-unknown-elf-gcc $(CFLAGS) -c examples/hello_c.c \
-		-o $(TARGET_DIR)/hello_c.o
+	riscv64-unknown-elf-gcc \
+		$(CFLAGS) \
+		-c examples/hello_c.c \
+		-o $(EXAMPLES)/hello_c.o
 	@echo '---'
 	@echo "# Archiving C library..."
-	riscv64-unknown-elf-ar rcs $(TARGET_DIR)/libhello_c.a \
-		$(TARGET_DIR)/hello_c.o
+	riscv64-unknown-elf-ar rcs \
+		$(EXAMPLES)/libhello_c.a \
+		$(EXAMPLES)/hello_c.o
 	@echo '---'
-	@echo "# Building Rust wrapper..."
-	RUSTFLAGS="-l hello_c -l c \
-		-L target/riscv32imac-unknown-none-elf/debug/examples \
-		-L $(LIBC_DIR) \
-		-C panic=abort \
-		-C opt-level=s \
-		-C debuginfo=none \
-		-C link-arg=-Tlink.x" \
-		cargo build --example c_main_wrapper \
-		--target riscv32imac-unknown-none-elf
+	@echo "# Building Rust SDK library (libdabao_sdk.a)..."
+	cargo build --lib
 	@echo '---'
-	$(LLVM_BIN)/llvm-objcopy -O binary $(TARGET_DIR)/c_main_wrapper \
-		$(TARGET_DIR)/hello_c.bin
+	@echo '# Linking C library with Rust library...'
+	riscv64-unknown-elf-gcc \
+		-march=rv32imac -mabi=ilp32 -nostartfiles -nostdlib \
+		-Tlink.x \
+		-Wl,--gc-sections \
+		-o $(EXAMPLES)/hello_c.elf \
+		$(TARGET_DIR)/libdabao_sdk.a \
+		$(EXAMPLES)/libhello_c.a \
+		$(LIBC_DIR)/libc.a \
+		-lgcc
 	@echo '---'
-	python3 signer.py $(TARGET_DIR)/hello_c.bin $(TARGET_DIR)/hello_c.img
+	@echo '# Extracting loadable sections to .bin file:'
+	@echo 'llvm-objcopy -O binary hello_c.elf hello_c.bin'
+	@$(LLVM_BIN)/llvm-objcopy -O binary $(EXAMPLES)/hello_c.elf \
+		$(EXAMPLES)/hello_c.bin
 	@echo '---'
-	python3 uf2ify.py $(TARGET_DIR)/hello_c.img $(TARGET_DIR)/hello_c.uf2
+	@echo '# Signing .bin file:'
+	@python3 signer.py $(EXAMPLES)/hello_c.bin $(EXAMPLES)/hello_c.img
 	@echo '---'
-	cp $(TARGET_DIR)/hello_c.uf2 examples/
+	@echo '# Packing signed blob as UF2:'
+	@python3 uf2ify.py $(EXAMPLES)/hello_c.img $(EXAMPLES)/hello_c.uf2
+	@echo '---'
+	cp $(EXAMPLES)/hello_c.uf2 examples/
 
 # Rebuild from scratch every time to avoid the hassle of defining the tree
 # of dependencies between sources and outputs.

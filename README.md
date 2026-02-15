@@ -83,51 +83,56 @@ for post build binary manipulation and a couple Python scripts to sign and UF2
 pack the firmware blob.
 
 
-### examples/c_main_wrapper.rs (C linked to Rust)
+### examples/hello_c.c (C linked to Rust)
 
 This one uses C for the application logic (hello world) and Rust for the
 hardware drivers. The C code has a hello world that gets linked with picolibc
 and a Rust wrapper. The Rust code initializes the hardware, provides a UART
-driver, and calls into `c_main()` from the C library. The wrapper is at
-[examples/c_main_wrapper.rs](examples/c_main_wrapper.rs) and the C code is at
+driver, and calls the `main()` exported by the C library. The C code is at
 [examples/hello_c.c](examples/hello_c.c).
 
 ```
 $ make hello_c
 cargo clean
-     Removed 54 files, 1.7MiB total
-mkdir -p target/riscv32imac-unknown-none-elf/debug/examples/examples
+     Removed 43 files, 17.7MiB total
+mkdir -p target/riscv32imac-unknown-none-elf/debug/examples
 ---
 # Compiling C code...
-riscv64-unknown-elf-gcc -I/usr/lib/picolibc/riscv64-unknown-elf/include -march=rv32imac -mabi=ilp32 -c examples/hello_c.c \
+riscv64-unknown-elf-gcc \
+	-I/usr/lib/picolibc/riscv64-unknown-elf/include -march=rv32imac -mabi=ilp32 \
+	-c examples/hello_c.c \
 	-o target/riscv32imac-unknown-none-elf/debug/examples/hello_c.o
 ---
 # Archiving C library...
-riscv64-unknown-elf-ar rcs target/riscv32imac-unknown-none-elf/debug/examples/libhello_c.a \
+riscv64-unknown-elf-ar rcs \
+	target/riscv32imac-unknown-none-elf/debug/examples/libhello_c.a \
 	target/riscv32imac-unknown-none-elf/debug/examples/hello_c.o
 ---
-# Building Rust wrapper...
-RUSTFLAGS="-l hello_c -l c \
-	-L target/riscv32imac-unknown-none-elf/debug/examples \
-	-L /usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32 \
-	-C panic=abort \
-	-C opt-level=s \
-	-C debuginfo=none \
-	-C link-arg=-Tlink.x" \
-	cargo build --example c_main_wrapper \
-	--target riscv32imac-unknown-none-elf
+# Building Rust SDK library (libdabao_sdk.a)...
+cargo build --lib
    Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
+    Finished `dev` profile [optimized] target(s) in 0.18s
 ---
-/home/sam/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/llvm-objcopy -O binary target/riscv32imac-unknown-none-elf/debug/examples/c_main_wrapper \
-	target/riscv32imac-unknown-none-elf/debug/examples/hello_c.bin
+# Linking C library with Rust library...
+riscv64-unknown-elf-gcc \
+	-march=rv32imac -mabi=ilp32 -nostartfiles -nostdlib \
+	-Tlink.x \
+	-Wl,--gc-sections \
+	-o target/riscv32imac-unknown-none-elf/debug/examples/hello_c.elf \
+	target/riscv32imac-unknown-none-elf/debug/libdabao_sdk.a \
+	target/riscv32imac-unknown-none-elf/debug/examples/libhello_c.a \
+	/usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32/libc.a \
+	-lgcc
 ---
-python3 signer.py target/riscv32imac-unknown-none-elf/debug/examples/hello_c.bin target/riscv32imac-unknown-none-elf/debug/examples/hello_c.img
-binary payload size is 19080 bytes
+# Extracting loadable sections to .bin file:
+llvm-objcopy -O binary hello_c.elf hello_c.bin
+---
+# Signing .bin file:
+binary payload size is 22040 bytes
 Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/hello_c.img
 ---
-python3 uf2ify.py target/riscv32imac-unknown-none-elf/debug/examples/hello_c.img target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2
-signed blob file size is 19848 bytes
+# Packing signed blob as UF2:
+signed blob file size is 22808 bytes
 UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2
 ---
 cp target/riscv32imac-unknown-none-elf/debug/examples/hello_c.uf2 examples/
@@ -142,42 +147,41 @@ what this does.
 ```
 $ make blinky
 cargo clean
-     Removed 42 files, 1000.5KiB total
+     Removed 54 files, 9.7MiB total
 cargo build --example blinky
-   Compiling dabao_sdk v0.1.0 (/home/sam/code/dabao_sdk)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.18s
+   Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
+    Finished `dev` profile [optimized] target(s) in 0.24s
 objdump -h target/riscv32imac-unknown-none-elf/debug/examples/blinky
 
 target/riscv32imac-unknown-none-elf/debug/examples/blinky:     file format elf32-little
 
 Sections:
 Idx Name          Size      VMA       LMA       File off  Algn
-  0 .firmware     000003a0  60060300  60060300  00000300  2**1
+  0 .firmware     00001cf0  60060300  60060300  00000300  2**2
                   CONTENTS, ALLOC, LOAD, READONLY, CODE
-  1 .data         00000010  61000000  600606a0  00001000  2**2
+  1 .data         00000010  61000000  60061ff0  00002000  2**2
                   CONTENTS, ALLOC, LOAD, DATA
-  2 .bss          00000000  61000010  600606b0  00001010  2**0
+  2 .bss          00000020  61000010  61000010  00002010  2**2
                   ALLOC
 ---
 # Checking .data section LMA (FLASH) and VMA (RAM) addresses:
 llvm-objdump -t blinky | grep _data
+60061ff0 g       *ABS*	00000000 _data_lma
 61000000 g       .data	00000000 _data_vma
-600606a0 g       *ABS*	00000000 _data_lma
 00000010 g       *ABS*	00000000 _data_size
 ---
 # Extracting loadable sections to .bin file:
 llvm-objcopy -O binary blinky blinky.bin
 ---
 # Signing .bin file:
-python3 signer.py target/riscv32imac-unknown-none-elf/debug/examples/blinky.bin target/riscv32imac-unknown-none-elf/debug/examples/blinky.img
-binary payload size is 944 bytes
+binary payload size is 7424 bytes
 Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.img
 ---
 # Packing signed blob as UF2:
-python3 uf2ify.py target/riscv32imac-unknown-none-elf/debug/examples/blinky.img target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
-signed blob file size is 1712 bytes
-uf2ify data is 1712 bytes
+signed blob file size is 8192 bytes
 UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2
+---
+cp target/riscv32imac-unknown-none-elf/debug/examples/blinky.uf2 examples/
 ```
 
 
@@ -189,42 +193,41 @@ this does.
 ```
 $ make uart
 cargo clean
-     Removed 42 files, 951.2KiB total
+     Removed 43 files, 17.7MiB total
 cargo build --example uart
-   Compiling dabao_sdk v0.1.0 (/home/sam/code/dabao_sdk)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.19s
+   Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
+    Finished `dev` profile [optimized] target(s) in 0.25s
 objdump -h target/riscv32imac-unknown-none-elf/debug/examples/uart
 
 target/riscv32imac-unknown-none-elf/debug/examples/uart:     file format elf32-little
 
 Sections:
 Idx Name          Size      VMA       LMA       File off  Algn
-  0 .firmware     00000e60  60060300  60060300  00000300  2**2
+  0 .firmware     00002410  60060300  60060300  00000300  2**2
                   CONTENTS, ALLOC, LOAD, READONLY, CODE
-  1 .data         00000010  61000000  60061160  00002000  2**2
+  1 .data         00000010  61000000  60062710  00003000  2**2
                   CONTENTS, ALLOC, LOAD, DATA
-  2 .bss          00000020  61000010  61000010  00002010  2**2
+  2 .bss          00000020  61000010  61000010  00003010  2**2
                   ALLOC
 ---
 # Checking .data section LMA (FLASH) and VMA (RAM) addresses:
 llvm-objdump -t uart | grep _data
+60062710 g       *ABS*	00000000 _data_lma
 61000000 g       .data	00000000 _data_vma
-60061160 g       *ABS*	00000000 _data_lma
 00000010 g       *ABS*	00000000 _data_size
 ---
 # Extracting loadable sections to .bin file:
 llvm-objcopy -O binary uart uart.bin
 ---
 # Signing .bin file:
-python3 signer.py target/riscv32imac-unknown-none-elf/debug/examples/uart.bin target/riscv32imac-unknown-none-elf/debug/examples/uart.img
-binary payload size is 3696 bytes
+binary payload size is 9248 bytes
 Signed firmware blob written to target/riscv32imac-unknown-none-elf/debug/examples/uart.img
 ---
 # Packing signed blob as UF2:
-python3 uf2ify.py target/riscv32imac-unknown-none-elf/debug/examples/uart.img target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2
-signed blob file size is 4464 bytes
-uf2ify data is 4464 bytes
+signed blob file size is 10016 bytes
 UF2 image written to target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2
+---
+cp target/riscv32imac-unknown-none-elf/debug/examples/uart.uf2 examples/
 ```
 
 
