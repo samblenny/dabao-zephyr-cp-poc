@@ -1,7 +1,8 @@
+.PHONY: lib
+.PHONY: hello_c
 .PHONY: blinky blinky-disassemble blinky-bin-hex blinky-img-hex blinky-uf2-hex
 .PHONY: uart uart-disassemble uart-bin-hex uart-img-hex uart-uf2-hex
 .PHONY: timer0 timer0-disassemble timer0-bin-hex timer0-img-hex timer0-uf2-hex
-.PHONY: hello_c
 .PHONY: clean
 
 STABLE_LIB := $(HOME)/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib
@@ -16,6 +17,11 @@ TIMER0 := $(EXAMPLES)/timer0
 LIBC_DIR := /usr/lib/picolibc/riscv64-unknown-elf/lib/release/rv32imac/ilp32
 CFLAGS := -I/usr/lib/picolibc/riscv64-unknown-elf/include \
 	-march=rv32imac -mabi=ilp32
+
+# Build target/riscv32imac-unknown-none-elf/debug/libdabao_sdk.a
+lib:
+	cargo clean
+	cargo build --lib
 
 hello_c:
 	cargo clean
