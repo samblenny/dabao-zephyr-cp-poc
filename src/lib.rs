@@ -105,3 +105,64 @@ fn init() {
 pub fn panic(_panic_info: &PanicInfo) -> ! {
     loop {}
 }
+
+// ============================================================================
+// C FFI Adapter Layer (dbs_* functions)
+// ============================================================================
+// These functions adapt idiomatic Rust APIs to C-compatible idioms.
+// They are declared in baochip_sdk.h for use from C code (e.g., MicroPython).
+
+/// Read one character from UART2, blocking until available.
+///
+/// This function blocks (with sleep calls) until a character is available.
+/// The sleep() calls ensure that the transmit DMA queue is serviced while
+/// waiting, preventing TX stalls.
+#[unsafe(no_mangle)]
+pub extern "C" fn dbs_uart_read_char() -> u8 {
+    loop {
+        if let Some(byte) = uart::getc() {
+            return byte;
+        }
+        sleep(1);  // Sleep 1ms, which calls uart::tick() to service TX DMA
+    }
+}
+
+/// Write data to UART2.
+///
+/// Queues the data for transmission via DMA. The write is non-blocking;
+/// the function returns immediately. Call dbs_uart_tick() periodically
+/// to service the TX DMA queue.
+#[unsafe(no_mangle)]
+pub extern "C" fn dbs_uart_write(data: *const u8, len: usize) {
+    let slice = unsafe { core::slice::from_raw_parts(data, len) };
+    uart::write(slice);
+}
+
+/// Service UART2 transmit DMA queue.
+///
+/// Checks if the current DMA transfer is complete. If so, advances the
+/// queue and starts the next DMA transfer if available.
+///
+/// Call periodically from your main event loop. Also called automatically
+/// by sleep() and dbs_uart_read_char().
+#[unsafe(no_mangle)]
+pub extern "C" fn dbs_uart_tick() {
+    uart::tick();
+}
+
+/// Sleep for specified milliseconds, servicing UART transmit DMA.
+///
+/// Blocks until the specified time has elapsed. Calls dbs_uart_tick()
+/// periodically to ensure UART transmit queue is serviced.
+#[unsafe(no_mangle)]
+pub extern "C" fn dbs_timer_sleep_ms(ms: u32) {
+    sleep(ms);
+}
+
+/// Get current system time in milliseconds.
+///
+/// Returns the number of milliseconds elapsed since system boot.
+#[unsafe(no_mangle)]
+pub extern "C" fn dbs_timer_millis() -> u64 {
+    ticktimer::millis()
+}
