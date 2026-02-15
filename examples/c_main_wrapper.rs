@@ -15,19 +15,6 @@
 //! 2. Compile C to static library with gcc and ar
 //! 3. Build this wrapper with RUSTFLAGS linking the C library
 //! 4. The Rust lib.rs _start() initializes hardware and calls C's main()
-//!
-//! Example Makefile pattern:
-//!     foo_c:
-//!         cargo clean
-//!         mkdir -p $(TARGET_DIR)
-//!         riscv64-unknown-elf-gcc $(CFLAGS) -c examples/foo_c.c \
-//!             -o $(TARGET_DIR)/foo_c.o
-//!         riscv64-unknown-elf-ar rcs $(TARGET_DIR)/libfoo_c.a \
-//!             $(TARGET_DIR)/foo_c.o
-//!         RUSTFLAGS="-l foo_c -l c -L target/.../examples -L $(LIBC_DIR) ..." \
-//!             cargo build --example c_main_wrapper \
-//!             --target riscv32imac-unknown-none-elf
-//!         # ... sign and package ...
 
 #![no_std]
 #![no_main]
@@ -35,7 +22,7 @@ extern crate dabao_sdk;
 
 // Declare C main() as a never-returning function
 // The C implementation is linked in from the C library
-// Suppress dead_code warning: main() is called by lib.rs _start(), not by this code
+// Suppress dead_code warning: main() is called by lib.rs _start()
 #[allow(dead_code)]
 unsafe extern "C" {
     fn main() -> !;

@@ -21,7 +21,4 @@ int main() {
         uart_write((const uint8_t *)buf);
         sleep(5000);
     }
-
-    // This line is never reached, but satisfies the type checker.
-    return 0;
 }

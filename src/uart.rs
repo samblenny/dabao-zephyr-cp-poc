@@ -164,9 +164,7 @@ pub extern "C" fn uart_write(data: *const u8) {
     }
 
     // Slice the raw pointer into a Rust slice
-    let slice = unsafe {
-        slice::from_raw_parts(data, length)
-    };
+    let slice = unsafe { slice::from_raw_parts(data, length) };
 
     write(slice);
 }
