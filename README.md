@@ -659,3 +659,15 @@ pub const HW_IFRAM1_MEM_LEN: usize = 131072;  // 128 kB
 The only way to send anything on the UDMA UART is to set up a DMA transaction.
 So, you have to set up an `unsafe` buffer in IFRAM, copy your data there, then
 start a UDMA transaction to read from the buffer.
+
+
+## USB Openmoko PIDs
+
+Baochip has the following Openmoko USB VID PID pairs (see openmoko-usb-oui
+[pull request](https://github.com/openmoko/openmoko-usb-oui/pull/69)):
+
+| VID    | PID    | Description                         |
+|--------|--------|-------------------------------------|
+| 0x1d50 | 0x6196 | Baochip-1x SoC bootloader           |
+| 0x1d50 | 0x6197 | Dabao breakout board for Baochip-1x |
+| 0x1d50 | 0x6198 | Baosec security token               |
