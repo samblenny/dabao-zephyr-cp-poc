@@ -20,7 +20,7 @@ this code once I've got it working. The point is to document how to do it.
 
 2. ✅ Add a C FFI layer over the drivers.
 
-3. Get MicroPython working with the minimal set of drivers.
+3. ✅ Get MicroPython working with the minimal set of drivers.
 
 4. Add USB CDC-ACM serial support.
 
