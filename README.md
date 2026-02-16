@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- SPDX-FileCopyrightText: Copyright 2026 Sam Blenny -->
-# Dabao SDK
+# Baochip SDK
 
 **DRAFT: WORK IN PROGRESS**
 
@@ -81,7 +81,7 @@ building target/riscv32imac-unknown-none-elf/release/libbaochip_sdk.a
 cargo clean
      Removed 15 files, 16.4MiB total
 cargo build --lib --release
-   Compiling dabao-sdk v0.1.0 (/home/sam/code/baochip-sdk)
+   Compiling baochip-sdk v0.1.0 (/home/sam/code/baochip-sdk)
     Finished `release` profile [optimized] target(s) in 0.19s
 ```
 
@@ -125,7 +125,7 @@ riscv64-unknown-elf-ar rcs \
 ---
 # Building Rust SDK library (libbaochip_sdk.a)...
 cargo build --lib
-   Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
+   Compiling baochip-sdk v0.1.0 (/home/sam/code/baochip-sdk)
     Finished `dev` profile [optimized] target(s) in 0.19s
 ---
 # Linking C library with Rust library...
@@ -179,7 +179,7 @@ $ make blinky
 cargo clean
      Removed 43 files, 17.8MiB total
 cargo build --example blinky
-   Compiling dabao-sdk v0.1.0 (/home/sam/code/dabao-sdk)
+   Compiling baochip-sdk v0.1.0 (/home/sam/code/baochip-sdk)
     Finished `dev` profile [optimized] target(s) in 0.32s
 objdump -h target/riscv32imac-unknown-none-elf/debug/examples/blinky
 
