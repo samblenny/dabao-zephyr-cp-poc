@@ -13,14 +13,12 @@ use core::ptr;
 // IRQARRAY1 Register Addresses
 // ============================================================================
 
-const IRQARRAY1_BASE: u32 = 0xe0005000;
-const IRQARRAY1_EV_SOFT: *mut u32 = (IRQARRAY1_BASE + 0x00) as *mut u32;
-//const IRQARRAY1_EV_EDGE_TRIGGERED: *mut u32 =
-//    (IRQARRAY1_BASE + 0x04) as *mut u32;
-//const IRQARRAY1_EV_POLARITY: *mut u32 = (IRQARRAY1_BASE + 0x08) as *mut u32;
-//const IRQARRAY1_EV_STATUS: *const u32 = (IRQARRAY1_BASE + 0x0c) as *const u32;
-const IRQARRAY1_EV_PENDING: *mut u32 = (IRQARRAY1_BASE + 0x10) as *mut u32;
-//const IRQARRAY1_EV_ENABLE: *mut u32 = (IRQARRAY1_BASE + 0x14) as *mut u32;
+const IRQARRAY1_EV_SOFT: *mut u32 = 0xe0005000 as *mut u32;
+//const IRQARRAY1_EV_EDGE_TRIGGERED: *mut u32 = 0xe0005004 as *mut u32;
+//const IRQARRAY1_EV_POLARITY: *mut u32 = 0xe0005008 as *mut u32;
+//const IRQARRAY1_EV_STATUS: *const u32 = 0xe000500c as *const u32;
+const IRQARRAY1_EV_PENDING: *mut u32 = 0xe0005010 as *mut u32;
+//const IRQARRAY1_EV_ENABLE: *mut u32 = 0xe0005014 as *mut u32;
 
 // Bit mask for USB controller in IRQARRAY1
 const USBC_BIT: u32 = 1 << 0;
@@ -38,21 +36,21 @@ const REG_DEVCAP: u32 = 0x0000;
 //const REG_USBSTS: u32 = 0x0024;
 
 // ============================================================================
-// Phase 0: IRQARRAY1_EV_PENDING Writability Test
+// Phase 0: IRQARRAY1_EV_PENDING Writability Test (CONFIRMED)
 // ============================================================================
 
-/// Test whether IRQARRAY1_EV_PENDING can be cleared by writing to it.
+/// Phase 0 validation: IRQARRAY1_EV_PENDING uses RW1C semantics.
 ///
-/// This validates the clearing mechanism for USB interrupts. Interrupt pending
-/// bits typically use RW1C semantics (write 1 to clear), but this is not
-/// explicitly documented for the Baochip. This test:
+/// TESTED AND CONFIRMED: Writing 1 to a pending bit clears it to 0.
+/// This function was executed on hardware and verified to work correctly.
+/// USB interrupt handlers can safely clear pending flags by writing 1.
 ///
+/// For reference, the test:
 /// 1. Uses EV_SOFT to set the pending bit
-/// 2. Attempts to clear by writing 1 to the bit
-/// 3. Checks whether the bit was cleared
-/// 4. Logs detailed results
-///
-/// The result determines how USB interrupt handlers must clear pending flags.
+/// 2. Writes 1 to attempt clearing via RW1C
+/// 3. Verifies the bit was cleared
+/// 4. Logs detailed results for debugging
+#[allow(dead_code)]
 pub fn pending_write_test() {
     unsafe {
         crate::log!("IRQARRAY1 Writability Test\r\n");
