@@ -27,13 +27,10 @@ const USBC_BIT: u32 = 1 << 0;
 // Corigine USB Controller Register Addresses
 // ============================================================================
 
-const CORIGINE_BASE: u32 = 0x5020_2400;
-
-// Device register offsets from Corigine base
-const REG_DEVCAP: u32 = 0x0000;
-//const REG_DEVCONFIG: u32 = 0x0010;
-//const REG_USBCMD: u32 = 0x0020;
-//const REG_USBSTS: u32 = 0x0024;
+const CORIGINE_DEVCAP: *const u32 = 0x5020_2400 as *const u32;
+//const CORIGINE_DEVCONFIG: *const u32 = 0x5020_2410 as *const u32;
+//const CORIGINE_USBCMD: *mut u32 = 0x5020_2420 as *mut u32;
+//const CORIGINE_USBSTS: *const u32 = 0x5020_2424 as *const u32;
 
 // ============================================================================
 // Phase 0: IRQARRAY1_EV_PENDING Writability Test (CONFIRMED)
@@ -117,8 +114,7 @@ pub fn pending_write_test() {
 /// This is a placeholder for Phase 1 implementation.
 pub fn detect() -> bool {
     unsafe {
-        let devcap =
-            ptr::read_volatile((CORIGINE_BASE + REG_DEVCAP) as *const u32);
+        let devcap = ptr::read_volatile(CORIGINE_DEVCAP);
         crate::log!("USB DEVCAP = 0x{:08x}\r\n", devcap);
         // TODO: Validate DEVCAP version and features
         devcap != 0xffffffff // Basic sanity check

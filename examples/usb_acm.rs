@@ -16,6 +16,11 @@ pub extern "C" fn main() -> ! {
     usb::pending_write_test();
     sleep(20);
     log!("made it past pending_write_test().\r\n");
+    sleep(20);
+    log!("calling usb::detect().\r\n");
+    sleep(20);
+    usb::detect();
+    log!("made it past detect().\r\n");
 
     loop {
         sleep(10);
